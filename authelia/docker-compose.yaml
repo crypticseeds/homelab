@@ -1,0 +1,42 @@
+---
+secrets:
+  JWT_SECRET:
+    file: '${PWD}/data/authelia/secrets/JWT_SECRET'
+  SESSION_SECRET:
+    file: '${PWD}/data/authelia/secrets/SESSION_SECRET'
+  STORAGE_PASSWORD:
+    file: '${PWD}/data/authelia/secrets/STORAGE_PASSWORD'
+  STORAGE_ENCRYPTION_KEY:
+    file: '${PWD}/data/authelia/secrets/STORAGE_ENCRYPTION_KEY'
+services:
+  authelia:
+    container_name: 'authelia'
+    image: 'docker.io/authelia/authelia:latest'
+    restart: 'unless-stopped'
+    networks:
+      - net
+      - proxy
+    secrets: ['JWT_SECRET', 'SESSION_SECRET', 'STORAGE_PASSWORD', 'STORAGE_ENCRYPTION_KEY']
+    environment:
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: '/run/secrets/JWT_SECRET'
+      AUTHELIA_SESSION_SECRET_FILE: '/run/secrets/SESSION_SECRET'
+      AUTHELIA_STORAGE_POSTGRES_PASSWORD_FILE: '/run/secrets/STORAGE_PASSWORD'
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: '/run/secrets/STORAGE_ENCRYPTION_KEY'
+    volumes:
+      - '${PWD}/data/authelia/config:/config'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`authelia.internal.devopsfoundry.com`)"
+      - "traefik.http.routers.authelia.entrypoints=https"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.routers.authelia.tls.certresolver=cloudflare"
+      - "traefik.http.routers.authelia.middlewares=security-headers@file,internal-ip-whitelist@file"
+      - "traefik.http.routers.authelia.service=authelia@internal"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+
+networks:
+  net:
+    external: true
+    name: 'net'
+  proxy:
+    external: true

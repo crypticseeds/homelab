@@ -1,0 +1,42 @@
+http:
+  middlewares:
+    security-headers:
+      headers:
+        customResponseHeaders:
+          X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex"
+          X-Forwarded-Proto: "https"
+          server: ""
+        sslProxyHeaders:
+          X-Forwarded-Proto: "https"
+        referrerPolicy: "same-origin"
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsSeconds: 63072000
+        stsPreload: true
+        frameDeny: true
+
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+    # Basic Auth Middleware - Uses usersFile for Secret support
+    traefik-auth:
+      basicAuth:
+        usersFile: "/run/secrets/basic_auth_credentials" # Expected format in secret: user:hashed_password
+
+    # Internal white list
+    internal-ip-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "192.168.0.0/16"
+          - "10.0.0.0/8" 
+          - "172.16.0.0/12"
+          - "100.64.0.0/10" 

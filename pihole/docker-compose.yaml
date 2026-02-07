@@ -1,0 +1,71 @@
+networks:
+  internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24 # safe range, avoids VM conflicts
+  proxy:
+    external: true # assumes Traefik network already exists
+
+services:
+  # Unbound recursive DNS
+  unbound:
+    image: klutchell/unbound:latest
+    container_name: unbound
+    restart: unless-stopped
+    networks:
+      internal:
+        ipv4_address: 172.30.0.8 # static IP for internal communication
+    volumes:
+      - ./unbound/config:/etc/unbound
+  ports:
+    - "53:53/tcp" # for Pi-hole internal queries
+    - "53:53/udp"
+  logging:
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+  # Pi-hole DNS
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    networks:
+      internal:
+        ipv4_address: 172.30.0.7 # static IP
+    proxy:
+      aliases:
+        - pihole.local
+    depends_on:
+      - unbound
+    environment:
+      TZ: ${TZ}
+      WEBPASSWORD: "PI_HOLE_PASSWORD"
+      DNSMASQ_LISTENING: "all"
+    PIHOLE_DNS_: '172.30.0.8#5335'
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    ports:
+      - "53:53/tcp" 
+      - "53:53/udp"
+      - "8080:80/tcp"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pihole.rule=Host(`pihole.internal.devopsfoundry.com`)"
+      - "traefik.http.routers.pihole.entrypoints=https"
+      - "traefik.http.routers.pihole.tls.certresolver=cloudflare"
+      - "traefik.http.routers.pihole.middlewares=security-headers@file,internal-ip-whitelist@file"
+      - "traefik.http.routers.pihole.service=pihole@internal"
+
+# Notes:
+# 1. Pi-hole and Unbound are isolated on 'internal' network.
+# 2. Static IPs ensure reliable internal DNS communication.
+# 3. Docker internal subnet is collision-proof for VMware NAT networks.
+# 4. Traefik network allows Pi-hole UI routing via reverse proxy.
+# 5. Unbound listens on port 53 internally; no external port mapping needed.
