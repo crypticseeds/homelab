@@ -40,7 +40,7 @@ On first visit, create an admin account; credentials are stored in the data dire
 
 ## Configuration
 
-- **Timezone:** Set `TZ` in `.env` or in the environment (e.g. `TZ=America/New_York`).
+- **Timezone:** Set `TZ` in `.env` or in the environment (e.g. `TZ=Europe/London`).
 - **Logging:** Container logs are limited to 3 × 10MB (json-file driver) to avoid unbounded disk use.
 
 ## Compose notes

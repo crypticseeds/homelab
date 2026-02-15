@@ -4,14 +4,15 @@ services:
     container_name: uptime-kuma
     restart: always
     ports:
-      - "3001:3001"  # This maps the container port "3001" to the host port "3001"
+      - "3001:3001" # This maps the container port "3001" to the host port "3001"
     volumes:
-      - ./data:/app/data  # Configuring persistent storage
+      - ./data:/app/data # Configuring persistent storage
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=${TZ}  # Set the timezone (change to your preferred local timezone so monitoring times are the same)
-      - UMASK=0022  # Set your file permissions manually
+      - TZ=${TZ} # Set the timezone (change to your preferred local timezone so monitoring times are the same)
+      - UMASK=0022 # Set your file permissions manually
     networks:
-      - proxy  # add your own custom network config
+      - proxy # add your own custom network config
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
@@ -27,11 +28,11 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.uptime-kuma.rule=Host(`uptime-kuma.internal.devopsfoundry.com`)"
       - "traefik.http.routers.uptime-kuma.entrypoints=https"
-      - "traefik.http.routers.uptime-kuma.tls=true"
       - "traefik.http.routers.uptime-kuma.tls.certresolver=cloudflare"
       - "traefik.http.routers.uptime-kuma.middlewares=security-headers@file,internal-ip-whitelist@file"
-      - "traefik.http.routers.uptime-kuma.service=uptime-kuma@internal"
-
+      - "traefik.http.routers.uptime-kuma.service=uptime-kuma"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
 networks:
   proxy:
     external: true # assumes Traefik network already exists
