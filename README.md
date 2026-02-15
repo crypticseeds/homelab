@@ -1,233 +1,49 @@
+# Homelab Infrastructure Repository
 
-**Homelab Infrastructure Repository**
+Welcome to my self-hosted homelab repository. This codebase serves as the central configuration hub for my home infrastructure, focusing on reproducibility, documentation, and security.
 
-This repository contains the source of my self-hosted homelab. It acts as a single place for Docker Compose files, service documentation, example environment files, and lightweight setup or bootstrap scripts.
+The stack is designed to be modular, with each service contained in its own directory along with its specific documentation.
 
-The goal is to keep the lab:
+## 🚀 Quick Links & Service Integration
 
-* **Reproducible** – services can be deployed consistently on new hosts
-* **Documented** – each service has clear usage and configuration notes
-* **Modular** – services are loosely coupled and easy to add or remove
-* **Production-minded** – security, networking, and reliability are treated as first-class concerns
+Most services have their own detailed `README.md` within their respective directories. Please refer to those for specific setup, configuration, and maintenance instructions.
 
-The stack focuses on reverse proxying, networking, automation, and internal tooling, with an emphasis on clarity over cleverness.
+| Service | Directory | Description | Dependencies |
+| :--- | :--- | :--- | :--- |
+| **OS Hardening** | [`./HARDENING.md`](./HARDENING.md) | Initial server security setup (SSH, Fail2Ban, etc.) | N/A |
+| **Docker** | System | Container runtime (foundation) | OS |
+| **Tailscale** | [`./taillscale`](./taillscale) | Secure remote access & mesh VPN | Docker |
+| **Traefik** | [`./traefik`](./traefik) | Reverse proxy & SSL termination | Docker, `proxy` network |
+| **Pi-hole + Unbound** | [`./pihole`](./pihole) | DNS ad-blocking & recursive resolver | Docker |
+| **Authelia** | [`./authelia`](./authelia) | SSO & Authentication portal | Traefik |
+| **Uptime Kuma** | [`./uptime-kuma`](./uptime-kuma) | Service monitoring & status pages | Traefik |
+| **Dockhand** | [`./dockhand`](./dockhand) | Docker container management UI | Traefik |
+| **n8n** | [`./n8n`](./n8n) | Workflow automation tool | Traefik |
+| **Portainer** | [`./portainer`](./portainer) | Alternative Docker management UI | Traefik |
 
-This repo is designed to run on constrained hardware (e.g. Raspberry Pi) but follows patterns that scale to larger environments.
+## 🛠️ Deployment Workflow
 
+The recommended deployment order ensures dependencies (like networking and authentication) are available for dependent services.
 
-# Homelab Setup Guide
+1.  **Fundamental Security**: Apply configurations from [`HARDENING.md`](./HARDENING.md).
+2.  **Network Layer**: Deploy **Tailscale** for remote management.
+3.  **Proxy Layer**: Deploy **Traefik** to establish the ingress and `proxy` network.
+4.  **Core Services**:
+    *   Deploy **Pi-hole + Unbound** for DNS.
+    *   Deploy **Authelia** for security (optional).
+5.  **Applications**: Deploy **Uptime Kuma**, **Dockhand**, **n8n**, etc.
 
-## Installation Order
+## 📂 Repository Structure
 
-Follow this sequence so each service has its dependencies in place:
+-   Each directory typically contains:
+    -   `compose.yaml` (or `docker-compose.yml`): The service definition.
+    -   `.env.example`: Template for environment variables.
+    -   `README.md`: Service-specific documentation.
 
-| Order | Service | Why this order |
-|-------|---------|----------------|
-| 1 | **OS Hardening** | Secure the base system before adding services. |
-| 2 | **Docker** | Container runtime; required by everything below. |
-| 3 | **Tailscale** | Secure remote access; no dependency on other services. |
-| 4 | **Traefik** | Reverse proxy; create first so other apps can attach to the `proxy` network. |
-| 5 | **Pi-hole + Unbound** | DNS; independent of Traefik. Deploy early so the host/network can use it. |
-| 6 | **Authelia** (optional) | Auth; uses Traefik’s `proxy` network. Deploy after Traefik if you use it. |
-| 7 | **Uptime Kuma** | Monitoring; behind Traefik. Deploy early so you can monitor the rest. |
-| 8 | **Dockhand** | Docker management UI; behind Traefik. |
-| 9 | **n8n** | Workflow automation; behind Traefik. |
+## 🤝 Contributing & Maintenance
 
-**Checklist (copy to track progress):**
-
-- [ ] **OS Hardening** – Secure the base system first
-- [ ] **Docker** – Container runtime foundation
-- [ ] **Tailscale** – Secure remote access
-- [ ] **Traefik** – Reverse proxy (create `proxy` network first)
-- [ ] **Pi-hole + Unbound** – DNS-based ad blocking and resolver
-- [ ] **Authelia** – Centralised auth (optional)
-- [ ] **Uptime Kuma** – Service monitoring
-- [ ] **Dockhand** – Docker management UI
-- [ ] **n8n** – Workflow automation
-
-### Future additions
-
-- [ ] **Portainer** – Alternative Docker UI (if not using Dockhand)
-- [ ] Other monitoring (e.g. checkmw) or services as needed
+-   **Updates**: Check individual service directories for update procedures.
+-   **Backups**: Ensure persistent volumes (often mapped to `./data` or similar in service dirs) are backed up regularly.
 
 ---
-
-## 1. OS Hardening
-
-### Create Non-Root User
-
-```bash
-# Create the user (replace 'yourusername' with your actual username)
-sudo adduser yourusername
-
-# Add user to sudo group
-sudo usermod -aG sudo yourusername
-
-# Optional: Enable passwordless sudo (use with caution)
-sudo visudo
-# Add this line:
-# yourusername ALL=(ALL) NOPASSWD:ALL
-```
-
----
-
-## 2. SSH Hardening
-
-### Backup and Configure
-
-```bash
-# Backup original config
-sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
-
-# Edit SSH daemon config
-sudo vim /etc/ssh/sshd_config
-```
-
-**Paste the hardened config below** (see full config in next section)
-
-### Create Login Banner
-
-```bash
-sudo vim /etc/ssh/banner.txt
-```
-
-Add:
-```
-
-╔══════════════════════════════════════════╗
-║   AUTHORIZED ACCESS ONLY                 ║
-║   Unauthorized access is prohibited      ║
-╚══════════════════════════════════════════╝
-```
-
-### Hardened SSH Server Config
-
-**File:** `/etc/ssh/sshd_config`
-
-```bash
-# /etc/ssh/sshd_config - Hardened SSH Server Configuration
-
-# Network
-Port 22
-AddressFamily inet
-ListenAddress 0.0.0.0
-
-# Authentication
-PermitRootLogin no
-PubkeyAuthentication yes
-PasswordAuthentication no
-PermitEmptyPasswords no
-ChallengeResponseAuthentication no
-KbdInteractiveAuthentication no
-UsePAM yes
-
-# Allow specific user only (replace with your username)
-AllowUsers yourusername
-
-# Disable unused authentication methods
-GSSAPIAuthentication no
-HostbasedAuthentication no
-IgnoreRhosts yes
-
-# Session settings
-X11Forwarding no
-PrintMotd no
-PrintLastLog yes
-TCPKeepAlive yes
-ClientAliveInterval 300
-ClientAliveCountMax 2
-MaxAuthTries 3
-MaxSessions 10
-LoginGraceTime 60
-
-# Logging
-SyslogFacility AUTH
-LogLevel VERBOSE
-
-# Cryptography - Modern and secure only
-# Host Keys (Ed25519 only, remove RSA/ECDSA/DSA)
-HostKey /etc/ssh/ssh_host_ed25519_key
-
-# Ciphers
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
-
-# MACs (Encrypt-Then-MAC only)
-MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
-
-# Key Exchange Algorithms
-KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
-
-# Public Key Algorithms
-PubkeyAcceptedAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256
-
-# Security hardening
-StrictModes yes
-PermitUserEnvironment no
-Compression no
-UseDNS no
-AllowAgentForwarding no
-AllowTcpForwarding no
-PermitTunnel no
-Banner /etc/ssh/banner.txt
-```
-
-### Test and Apply
-
-```bash
-# Test config for syntax errors
-sudo sshd -t
-
-# If no errors, restart SSH (keep current session open!)
-sudo systemctl restart sshd
-
-# In a NEW terminal, test login before closing current session
-ssh yourusername@your-server-ip
-```
-
-### Optional: Remove Old Host Keys
-
-```bash
-# Keep only Ed25519, remove RSA/ECDSA/DSA
-sudo rm /etc/ssh/ssh_host_rsa_key*
-sudo rm /etc/ssh/ssh_host_ecdsa_key*
-sudo rm /etc/ssh/ssh_host_dsa_key*
-```
-
----
-
-## 3. Install Fail2Ban (Optional but Recommended)
-
-```bash
-# Install
-sudo apt update
-sudo apt install fail2ban -y
-
-# Configure
-sudo vim /etc/fail2ban/jail.local
-```
-
-Add:
-```ini
-[sshd]
-enabled = true
-port = 22
-filter = sshd
-logpath = /var/log/auth.log
-maxretry = 3
-bantime = 3600
-findtime = 600
-```
-
-```bash
-# Enable and start
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban
-
-# Check status
-sudo fail2ban-client status sshd
-
-# Manually unban an IP
-sudo fail2ban-client set sshd unbanip 203.0.113.50
-```
-
-
+*Note: This overview is kept lightweight. For deep dives into specific configurations, please navigate to the service's directory.*
