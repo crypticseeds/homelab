@@ -16,7 +16,7 @@ docker network create proxy
 mkdir -p traefik
 mkdir -p traefik/dynamic
 
-# 3. Create acme.json with correct permissions
+# 3. Create acme.json with correct permissions (Traefik requires 600; 664 will be rejected)
 touch traefik/acme.json
 chmod 600 traefik/acme.json
 
@@ -71,20 +71,32 @@ This will output something like: `admin:$apr1$xyz...`
 
 Copy the **entire output** and create a secret named `basic_auth_credentials` with this value.
 
-### 2. Configuration (.env)
+### 2. acme.json permissions
 
-Edit `.env` for non-sensitive config:
+Traefik will not use the ACME resolver if `acme.json` is readable by others. It must be **mode 600** (owner read/write only).
+
+**If the file already exists with wrong permissions (e.g. 664):**
+```bash
+chmod 600 traefik/acme.json
+```
+
+Then restart Traefik: `docker compose up -d` (or restart the container).
+
+### 3. Configuration (.env)
+
+Edit `.env` (do not commit this file):
 ```bash
 vim .env
 ```
-- `CLOUDFLARE_EMAIL`: Your Cloudflare email.
+- `CLOUDFLARE_EMAIL`: Your Cloudflare account email.
+- `CF_DNS_API_TOKEN`: Your Cloudflare API token (Zone → DNS → Edit). Required for ACME DNS challenge.
 
-### 3. Running
+### 4. Running
 Ensure you are in the directory where you ran the setup script:
 ```bash
 docker compose up -d
 ```
-*Traefik will read the `CF_DNS_API_TOKEN` from `/run/secrets/cf_dns_token`.*
+*Traefik reads the Cloudflare token from the `CF_DNS_API_TOKEN` variable in your `.env` file.*
 
 ## Adding New Services
 
@@ -115,3 +127,8 @@ networks:
   proxy:
     external: true
 ```
+
+## Troubleshooting
+
+- **"permissions 664 for acme.json are too open, please use 600"** — Run `chmod 600 traefik/acme.json` and restart Traefik.
+- **"Router uses a nonexistent certificate resolver"** — Usually caused by the ACME resolver being skipped (e.g. due to the `acme.json` permission error above). Fix `acme.json` permissions and restart.

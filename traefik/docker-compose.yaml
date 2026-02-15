@@ -14,7 +14,7 @@ services:
       - 443:443/udp # Uncomment if you want HTTP3
     env_file: .env
     environment:
-      - CF_DNS_API_TOKEN_FILE=/run/secrets/cf_dns_token
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
       - TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_EMAIL=${CLOUDFLARE_EMAIL}
       - TZ=${TZ}
     secrets:
