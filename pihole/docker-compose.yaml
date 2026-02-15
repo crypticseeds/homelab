@@ -1,5 +1,5 @@
 networks:
-  internal:
+  dns_net:
     driver: bridge
     ipam:
       config:
@@ -8,49 +8,78 @@ networks:
     external: true # assumes Traefik network already exists
 
 services:
+  # Gluetun VPN
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun-vpn
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      dns_net:
+        ipv4_address: 172.30.0.9
+    volumes:
+      - ./gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - FIREWALL_INPUT_PORTS=5335 # Allow Pi-hole (outside VPN) to reach Unbound on 5335 via gluetun's default interface.
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+      - UPDATER_PERIOD=24h
+      - TZ=${TZ}
+
   # Unbound recursive DNS
   unbound:
     image: klutchell/unbound:latest
     container_name: unbound
     restart: unless-stopped
-    networks:
-      internal:
-        ipv4_address: 172.30.0.8 # static IP for internal communication
+    # networks: # Uncomment if not using gluetun network
+    #   dns_net:
+    #     ipv4_address: 172.30.0.8
+    # ports:
+    #   - "5335:5335/tcp"
+    #   - "5335:5335/udp"
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
     volumes:
-      - ./unbound/config:/etc/unbound
-  ports:
-    - "53:53/tcp" # for Pi-hole internal queries
-    - "53:53/udp"
-  logging:
-    options:
-      max-size: "10m"
-      max-file: "3"
+      - ./unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Pi-hole DNS
   pihole:
     image: pihole/pihole:latest
     container_name: pihole
+    hostname: pihole.home
     restart: unless-stopped
     networks:
-      internal:
+      dns_net:
         ipv4_address: 172.30.0.7 # static IP
-    proxy:
-      aliases:
-        - pihole.local
+      proxy:
     depends_on:
       - unbound
     environment:
-      TZ: ${TZ}
-      WEBPASSWORD: "PI_HOLE_PASSWORD"
-      DNSMASQ_LISTENING: "all"
-    PIHOLE_DNS_: '172.30.0.8#5335'
+      - TZ=${TZ}
+      # - FTLCONF_webserver_api_password='${PIHOLE_WEBPASSWORD}'
+      # - FTLCONF_dns_listeningMode='ALL' # Permit all origins, accept on all interfaces.
+      # - FTLCONF_dns_dnssec='true' # Validate DNS replies using DNSSEC.
+      - FTLCONF_dns_upstreams=172.30.0.9#5335 # Unbound DNS via gluetun network namespace
+      - VIRTUAL_HOST='pihole.internal.devopsfoundry.com'
     volumes:
-      - ./pihole/etc-pihole:/etc/pihole
-      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+      - ./etc-pihole:/etc/pihole
+      - ./etc-dnsmasq.d:/etc/dnsmasq.d
     ports:
-      - "53:53/tcp" 
+      - "53:53/tcp"
       - "53:53/udp"
-      - "8080:80/tcp"
+      # - "81:80/tcp"
+      # - "8080:80/tcp" # not needed if using Traefik
     logging:
       options:
         max-size: "10m"
@@ -61,11 +90,11 @@ services:
       - "traefik.http.routers.pihole.entrypoints=https"
       - "traefik.http.routers.pihole.tls.certresolver=cloudflare"
       - "traefik.http.routers.pihole.middlewares=security-headers@file,internal-ip-whitelist@file"
-      - "traefik.http.routers.pihole.service=pihole@internal"
-
-# Notes:
-# 1. Pi-hole and Unbound are isolated on 'internal' network.
-# 2. Static IPs ensure reliable internal DNS communication.
-# 3. Docker internal subnet is collision-proof for VMware NAT networks.
-# 4. Traefik network allows Pi-hole UI routing via reverse proxy.
-# 5. Unbound listens on port 53 internally; no external port mapping needed.
+      - "traefik.http.routers.pihole.service=pihole"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
+# # Notes:
+# 1. Pi-hole is on `dns_net` + `proxy` (Traefik), and exposes DNS (53) to your LAN.
+# 2. Unbound shares Gluetun's network namespace (`network_mode: service:gluetun`) so it does not have its own IP.
+# 3. Pi-hole reaches Unbound at the Gluetun IP on `dns_net` (e.g. 172.30.0.9#5335).
+# 4. Unbound's upstream recursion to root servers goes out via the VPN tunnel.
