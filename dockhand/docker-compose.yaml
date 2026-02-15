@@ -9,47 +9,20 @@ services:
       - proxy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - dockhand_data:/app/data
+      # - dockhand_data:/app/data # Named volume
+      - ./dockhand_data:/app/data # Bind mount
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dockhand.rule=Host(`dockhand.internal.devopsfoundry.com`)"
       - "traefik.http.routers.dockhand.entrypoints=https"
-      - "traefik.http.routers.dockhand.tls=true"
       - "traefik.http.routers.dockhand.tls.certresolver=cloudflare"
       - "traefik.http.routers.dockhand.middlewares=security-headers@file,internal-ip-whitelist@file"
-      - "traefik.http.routers.dockhand.service=dockhand@internal"
+      - "traefik.http.routers.dockhand.service=dockhand"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.dockhand.loadbalancer.server.port=3000"
 
 networks:
   proxy:
     external: true
-
-volumes:
-  dockhand_data:
-
-    # # Dockhand with postgreess
-
-    # services:
-    #   postgres:
-    #     image: postgres:16-alpine
-    #     environment:
-    #       POSTGRES_USER: dockhand
-    #       POSTGRES_PASSWORD: DOCKHAND_POSTGRES_PASSWORD
-    #       POSTGRES_DB: dockhand
-    #     volumes:
-    #       - postgres_data:/var/lib/postgresql/data
-
-    #   dockhand:
-    #     image: fnsys/dockhand:latest
-    #     ports:
-    #       - 3000:3000
-    #     environment:
-    #       DATABASE_URL: postgres://dockhand:DOCKHAND_POSTGRES_PASSWORD@postgres:5432/dockhand
-    #     volumes:
-    #       - /var/run/docker.sock:/var/run/docker.sock
-    #       - dockhand_data:/app/data
-    #     depends_on:
-    #       - postgres
-
-    # volumes:
-    #   postgres_data:
-    #   dockhand_data:
+# volumes: # Named volume
+#   dockhand_data:
