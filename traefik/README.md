@@ -1,6 +1,6 @@
 # Traefik v3 Secure Homelab Setup
 
-This setup uses Traefik v3 as a reverse proxy with Cloudflare DNS challenge for automatic Wildcard SSL certificates. It uses **Docker Secrets** for sensitive data, ensuring full compatibility with Portainer/Dockhand.
+This setup uses Traefik v3 as a reverse proxy with Cloudflare DNS challenge for automatic Wildcard SSL certificates. 
 
 ## Quick Start (Recreate Everything)
 
@@ -12,20 +12,13 @@ Run the following script to create all necessary configuration files and folders
 # 1. Create Docker Network (required for Traefik to communicate with other containers)
 docker network create proxy
 
-# 2. Create Directories
-mkdir -p traefik
-mkdir -p traefik/dynamic
-
 # 3. Create acme.json with correct permissions (Traefik requires 600; 664 will be rejected)
 touch traefik/acme.json
 chmod 600 traefik/acme.json
 
 # 4. Create Empty Configuration Files (Populate these with your actual config!)
-touch traefik/traefik.yml
-touch traefik/docker-compose.yaml
-touch traefik/dynamic/middlewares.yml
-touch traefik/dynamic/tls.yml
-touch traefik/.env
+
+mv .env.example .env
 
 echo "Traefik directory structure created. Copy your existing configs into the created files."
 ```

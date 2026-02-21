@@ -45,7 +45,13 @@ pihole/
     ```bash
     docker network create proxy
     ```
-3.  **Port 53 Availability**: On Ubuntu/Debian, `systemd-resolved` often occupies port 53.
+
+3.  **Data directories**: Create the directories used for Pi-hole, Gluetun, and dnsmasq config (Docker volume mounts). From the `pihole/` directory:
+    ```bash
+    mkdir -p etc-pihole gluetun etc-dnsmasq.d
+    ```
+
+4.  **Port 53 Availability**: On Ubuntu/Debian, `systemd-resolved` often occupies port 53.
     - Refer to `ubuntu_port_53_fix.md` for the solution.
 
 ## ⚙️ Configuration

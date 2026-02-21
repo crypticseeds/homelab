@@ -68,8 +68,8 @@ services:
     environment:
       - TZ=${TZ}
       # - FTLCONF_webserver_api_password='${PIHOLE_WEBPASSWORD}'
-      # - FTLCONF_dns_listeningMode='ALL' # Permit all origins, accept on all interfaces.
-      # - FTLCONF_dns_dnssec='true' # Validate DNS replies using DNSSEC.
+      - FTLCONF_dns_listeningMode=ALL # Permit all origins, accept on all interfaces.
+      - FTLCONF_dns_dnssec=true # Validate DNS replies using DNSSEC.
       - FTLCONF_dns_upstreams=172.30.0.9#5335 # Unbound DNS via gluetun network namespace
       - VIRTUAL_HOST='pihole.internal.devopsfoundry.com'
     volumes:

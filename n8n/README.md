@@ -13,8 +13,12 @@ This setup provides a persistent n8n instance accessible via a custom domain. It
 
 - Docker & Docker Compose
 - Traefik reverse proxy running on the `proxy` external network.
-- `local-files` directory for file manipulations within workflows.
-- `n8n_data` directory for persisting n8n data.
+- **Data directories**: Create these from the `n8n/` directory before first run:
+  ```bash
+  mkdir -p n8n_data local-files
+  ```
+  - `n8n_data`: persists n8n database, workflows, and credentials.
+  - `local-files`: used by workflows for reading/writing files.
 
 ## Configuration
 
@@ -43,7 +47,11 @@ Ensure the following directories exist in the project root to maintain persisten
 
 1. **Create Data Directories** (if they don't exist):
    ```bash
-   mkdir n8n_data local-files
+   mkdir -p n8n_data local-files
+   ```
+   Set ownership so the n8n container (runs as UID 1000) can write to the bind mounts:
+   ```bash
+   sudo chown -R 1000:1000 n8n_data local-files
    ```
 
 2. **Start the Service**:

@@ -116,8 +116,8 @@ PermitUserEnvironment no
 Compression no
 UseDNS no
 AllowAgentForwarding no
-AllowTcpForwarding no
-PermitTunnel no
+AllowTcpForwarding yes # Allows Coding IDE
+PermitTunnel yes # Allows Coding IDE
 Banner /etc/ssh/banner.txt
 ```
 

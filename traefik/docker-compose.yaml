@@ -10,16 +10,16 @@ services:
     ports:
       - 80:80
       - 443:443
-      - 443:443/tcp # Uncomment if you want HTTP3
-      - 443:443/udp # Uncomment if you want HTTP3
+      # - 443:443/tcp # Uncomment if you want HTTP3
+      # - 443:443/udp # Uncomment if you want HTTP3
     env_file: .env
     environment:
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
       - TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_EMAIL=${CLOUDFLARE_EMAIL}
       - TZ=${TZ}
-    secrets:
-      - cf_dns_token
-      - basic_auth_credentials
+    # secrets:
+    #   - cf_dns_token
+    #   - basic_auth_credentials
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -47,8 +47,8 @@ networks:
   proxy:
     external: true
 
-secrets:
-  cf_dns_token:
-    external: true
-  basic_auth_credentials:
-    external: true
+# secrets:
+#   cf_dns_token:
+#     external: true
+#   basic_auth_credentials:
+#     external: true
